@@ -1,0 +1,16 @@
+{
+  "name": "1-26-19",
+  "version": "1.0.0",
+  "description": "",
+  "main": "doodoo.js",
+  "dependencies": {
+    "inquirer": "^6.2.1",
+    "mysql": "^2.16.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
