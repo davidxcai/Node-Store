@@ -20,10 +20,12 @@ function read(low) {
         connection.query('SELECT * FROM products', function (err, result) {
             if (err) throw err;
             console.log(divider);
-            console.log("Low stock items: ")
+            console.log("Low stock items: \n")
+            var few = false;
             result.forEach(function (x, i) {
                 var left = Number(result[i].stock_quantity);
-                if (left < 5) {
+                if (left <= 5) {
+                    few = true;
                     console.log(`Item: ${result[i].product_name}`);
                     console.log(`ID: ${result[i].item_id}`);
                     console.log(`$${result[i].price}`);
@@ -36,6 +38,11 @@ function read(low) {
                     console.log(divider);
                 }
             });
+            if (!few) {
+                console.log("None; all items sufficiently stocked.");
+                console.log(divider);
+            }
+            keepgoing();
         });
     }
     else {
@@ -55,9 +62,9 @@ function read(low) {
                 }
                 console.log(divider);
             });
+            keepgoing();
         });
     }
-    keepgoing();
 }
 
 function addMore(quantity, id) {
@@ -72,9 +79,9 @@ function addMore(quantity, id) {
             console.log(divider);
             console.log(`Total in stock: ${remaining}`);
             console.log(divider);
+            keepgoing();
         });
     });
-    keepgoing();
 }
 
 function addNew(product, department, price, stock) {
@@ -86,10 +93,9 @@ function addNew(product, department, price, stock) {
         console.log(divider);
         read();
     });
-    keepgoing();
 }
 
-manager();
+
 
 function keepgoing() {
     inquirer.prompt([
@@ -109,13 +115,61 @@ function keepgoing() {
     })
 }
 
+function confirm(action, name, dep, price, q) {
+    if (action === 'addNew') {
+        console.log(divider);
+        console.log(`Adding item(s) to inventory:`);
+        console.log(`Item: ${name}`);
+        console.log(`Department: ${dep}`)
+        console.log(`Price: ${price}`);
+        console.log(`Quantity: ${q}`);
+        console.log(divider);
+        inquirer.prompt({
+            name: "action",
+            message: "Please Confirm:",
+            type: 'list',
+            choices: ['Confirm', 'Cancel']
+        }).then(function(ans) {
+            if (ans.action === 'Confirm') {
+                //run
+                addNew(name, dep, price, q);
+            }
+            else if (ans.action === 'Cancel') {
+                keepgoing();
+            }
+        });
+    }
+    else if (action === 'addMore') {
+        console.log(divider);
+        console.log(`Adding quantity to ID: ${dep}:`);
+        console.log(`Quantity: ${q}`);
+        console.log(divider);
+        inquirer.prompt({
+            name: "action",
+            message: "Please Confirm:",
+            type: 'list',
+            choices: ['Confirm', 'Cancel']
+        }).then(function(ans) {
+            if (ans.action === 'Confirm') {
+                //run
+                addMore(name, dep);
+            }
+            else if (ans.action === 'Cancel') {
+                keepgoing();
+            }
+        });
+    }
+    
+}
+
+//Prompts user upon startup
 function manager() {
     inquirer.prompt([
         {
             name: "action",
             message: "What would you like to do?",
             type: "list",
-            choices: ['View Products for Sale', 'View Low Inventory', 'Add to Inventory', 'Add New Product']
+            choices: ['View Products for Sale', 'View Low Inventory', 'Add to Inventory', 'Add New Product', 'Quit']
         }
     ]).then(function(answer) {
         var a = answer.action;
@@ -133,10 +187,16 @@ function manager() {
                     message: "What is the ID of the item you want to update?",
                     validate: function (value) {
                         if (isNaN(value) === false) {
-                            return true;
+                            if (Number(value) <= 0) {
+                                console.log("Please enter an ID greater than 0.");
+                                return false;
+                            }
+                            else {
+                                return true;
+                            }
                         }
-                        else {
-                            console.log(' Please enter a number.')
+                        else if (isNaN(value)) {
+                            console.log("Please enter a number.");
                             return false;
                         }
                     }
@@ -155,48 +215,102 @@ function manager() {
                     }
                 }
             ]).then(function(ans) {
-                addMore(ans.stock, ans.id);
+                var action = 'addMore';
+                confirm(action, ans.stock, ans.id);
             });
         }
         else if (a === 'Add New Product') {
-            inquirer.prompt([
-                {
-                    name: "product",
-                    message: "What would you like to add?"
-                },
-                {
-                    name: "department",
-                    message: "What department does this belong to?"
-                },
-                {
-                    name: "price",
-                    message: "Set the price of the item: ",
-                    validate: function (value) {
-                        if (isNaN(value) === false) {
-                            return true;
+            var select = `SELECT * FROM products`;
+            var depArr = [];
+            connection.query(select, function(err, product) {
+                if (err) throw err;
+                product.forEach(function(x, i) {
+                    depArr.push(product[i].department_name);
+                });
+                depArr.push('Add New Department');
+                let department = [...new Set(depArr)];
+                console.log(`Department array: ${department}`);
+                inquirer.prompt([
+                    {
+                        name: "product",
+                        message: "What would you like to add?",
+                        validate: function(value) {
+                            if (value) {
+                                return true;
+                            }
+                            else if (!value) {
+                                console.log("Please enter a product name.")
+                                return false;
+                            }
                         }
-                        else {
-                            console.log(' Please enter a number.')
-                            return false;
+                    },
+                    {
+                        name: "department",
+                        message: "What department does this belong to?",
+                        type: "list",
+                        choices: department,
+                        validate: function(value) {
+                            if (value === 'Add New Department') {
+                                inquirer.prompt({
+                                    name: "dep",
+                                    message: "Please enter the new department name:",
+                                    validate: function(value) {
+                                        if (value) {
+                                            return true;
+                                        }
+                                        else if (!value) {
+                                            console.log("Please enter a product name.")
+                                            return false;
+                                        }
+                                    }
+                                }).then(function(ans) {
+                                    value = ans.dep;
+                                })
+                            }
+                        }
+                    },
+                    {
+                        name: "price",
+                        message: "Set the price of the item: ",
+                        validate: function (value) {
+                            if (isNaN(value) === false) {
+                                return true;
+                            }
+                            else {
+                                console.log(' Please enter a number.')
+                                return false;
+                            }
+                        }
+                    },
+                    {
+                        name: "stock",
+                        message: "Set the inventory quantity: ",
+                        validate: function (value) {
+                            if (isNaN(value) === false) {
+                                if (Number(value) <= 0) {
+                                    console.log("Please enter a quantity greater than 0.");
+                                    return false;
+                                }
+                                else {
+                                    return true;
+                                }
+                            }
+                            else if (isNaN(value)) {
+                                console.log("Please enter a number.");
+                                return false;
+                            }
                         }
                     }
-                },
-                {
-                    name: "stock",
-                    message: "Set the inventory quantity: ",
-                    validate: function (value) {
-                        if (isNaN(value) === false) {
-                            return true;
-                        }
-                        else {
-                            console.log(' Please enter a number.')
-                            return false;
-                        }
-                    }
-                }
-            ]).then(function(ans) {
-                addNew(ans.product, ans.department, ans.price, ans.stock);
-            });
+                ]).then(function(ans) {
+                    var action = 'addNew';
+                    confirm(action, ans.product, ans.department, ans.price, ans.stock);
+                });
+            })
+        }
+        else if (a === 'Quit') {
+            console.log("Goodbye.");
         }
     });
 }
+
+manager();
