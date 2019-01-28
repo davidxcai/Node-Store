@@ -13,6 +13,10 @@ const connection = mysql.createConnection({
 connection.connect(function (err) {
     if (err) throw err;
     // console.log(`Connected to mySql with ID: ${connection.threadId}`);
+    console.log(divider);
+    console.log(`\t     Welcome to Shoppingtons!`);
+    console.log(divider);
+    preprompt(prompt);
 });
 
 //displays a particular id if they input one, or shows all
@@ -21,8 +25,42 @@ function read(func, id) {
         var select = `SELECT * FROM products WHERE item_id = ?`;
         connection.query(select, [id], function (err, result) {
             if (err) throw err;
-            console.log(result);
-            func();
+            var left = Number(result[0].stock_quantity);
+            var price = parseFloat(result[0].price).toFixed(2);
+            console.log(divider);
+            console.log(`ID: \t\t${result[0].item_id}`);
+            console.log(`Item: \t\t${result[0].product_name}`);
+            console.log(`Price \t\t$${price}`);
+            if (left <= 0) {
+                console.log(`Out of stock`);
+            }
+            else {
+                console.log(`In stock: \t${left}`);
+            }
+            console.log(`Department: \t${result[0].department_name}`)
+            console.log(divider);
+            inquirer.prompt([{
+                name: "ask",
+                message: "Would you like to purchase this item?",
+                type: "list",
+                choices: ["Yes", "No thanks"]
+            }
+            ]).then(function (choice) {
+                if (choice.ask === "Yes") {
+                    inquirer.prompt(
+                        {
+                            name: 'quantity',
+                            message: 'How many would you like to purchase?',
+                            validate: validateTest
+                        }
+                    ).then(function (q) {
+                        confirm(q.quantity, id, prompt);
+                    })
+                }
+                else if (choice.ask === "No thanks") {
+                    keepgoing();
+                }
+            })
         });
     }
     else {
@@ -32,15 +70,16 @@ function read(func, id) {
             result.forEach(function (x, i) {
                 var left = Number(result[i].stock_quantity);
                 var price = parseFloat(result[i].price).toFixed(2);
-                console.log(`Item: ${result[i].product_name}`);
-                console.log(`ID: ${result[i].item_id}`);
-                console.log(`$${price}`);
+                console.log(`ID: \t\t${result[i].item_id}`);
+                console.log(`Item: \t\t${result[i].product_name}`);
+                console.log(`Price \t\t$${price}`);
                 if (left <= 0) {
                     console.log(`Out of stock`);
                 }
                 else {
-                    console.log(`In stock: ${left}`);
+                    console.log(`In stock: \t${left}`);
                 }
+                console.log(`Department: \t${result[i].department_name}`)
                 console.log(divider);
             });
             func();
@@ -59,14 +98,21 @@ function resetstock(quantity, id) {
 }
 
 //checks to see if the number is greater than 0
-function validateNumber(qty) {
-    var regex = /^\d+$/;
-    return regex.test(qty) || 'Quantity should be a number!';
+function validateTest(value) {
+    if (isNaN(value) === false) {
+        if (Number(value) <= 0) {
+            return "Please enter a number greater than 0.";
+        } else {
+            return true;
+        }
+    } else if (isNaN(value)) {
+        return "Please enter a number.";
+    }
 }
 
 //Updates the quantity in the database
 function update(quantity, id, func) {
-    var update = `UPDATE products SET stock_quantity = ? WHERE item_id = ?`;
+    var update = `UPDATE products SET stock_quantity = ?, product_sales = ? WHERE item_id = ?`;
     var select = `SELECT * FROM products WHERE item_id = ?`;
     connection.query(select, [id], function (err, result) {
         if (err) throw err;
@@ -74,7 +120,7 @@ function update(quantity, id, func) {
         var remaining = result[0].stock_quantity -= quantity;
         var amount = parseFloat(result[0].price * quantity).toFixed(2);
         var total = parseFloat(amount * 1.06).toFixed(2);
-        // console.log(`quantity before: ${stock}`);
+        var sales = parseFloat(result[0].product_sales += amount).toFixed(2);
         if (stock > 0) {
             if (remaining < 0) {
                 console.log(divider);
@@ -83,9 +129,8 @@ function update(quantity, id, func) {
                 keepgoing();
             }
             else {
-                connection.query(update, [remaining, id], function (err) {
+                connection.query(update, [remaining, sales, id], function (err) {
                     if (err) throw err;
-                    // console.log(`quantity after: ${remaining}`);
                     console.log(divider);
                     console.log("Thank you for your purchase!\n");
                     console.log("Your order is on it's way!\n")
@@ -118,7 +163,9 @@ function keepgoing() {
             read(prompt);
         }
         else if (answer.action === "No") {
-            console.log("Thank you, come back soon!");
+            console.log(divider);
+            console.log("\t    Thank you, come back soon!");
+            console.log(divider);
         }
     })
 }
@@ -140,24 +187,10 @@ function preprompt(func) {
                 {
                     name: "id",
                     message: "What is the ID of the item you would like to search for?",
-                    validate: function (value) {
-                        if (isNaN(value) === false) {
-                            if (Number(value) <= 0) {
-                                console.log("Please enter an ID greater than 0.");
-                                return false;
-                            }
-                            else {
-                                return true;
-                            }
-                        }
-                        else if (isNaN(value)) {
-                            console.log("Please enter a number.");
-                            return false;
-                        }
-                    }
+                    validate: validateTest
                 }
             ).then(function (ans) {
-                read(func, ans.id);
+                read(preprompt, ans.id);
             })
         }
     })
@@ -185,7 +218,7 @@ function confirm(q, id, func) {
                 type: "list",
                 choices: ['Place Order', 'Cancel']
             }
-        ).then(function(answer) {
+        ).then(function (answer) {
             if (answer.confirm === 'Place Order') {
                 update(q, id, func);
             }
@@ -202,45 +235,15 @@ function prompt() {
         {
             name: 'itemid',
             message: 'What is the id of the product you would like to purchase?',
-            validate: function (value) {
-                if (isNaN(value) === false) {
-                    if (Number(value) <= 0) {
-                        console.log("Please enter an ID greater than 0.");
-                        return false;
-                    }
-                    else {
-                        return true;
-                    }
-                }
-                else if (isNaN(value)) {
-                    console.log("Please enter a number.");
-                    return false;
-                }
-            }
+            validate: validateTest
         },
         {
             name: 'quantity',
             message: 'How many would you like to purchase?',
-            validate: function (value) {
-                if (isNaN(value) === false) {
-                    if (Number(value) <= 0) {
-                        console.log("Please enter a quantity greater than 0.");
-                        return false;
-                    }
-                    else {
-                        return true;
-                    }
-                }
-                else if (isNaN(value)) {
-                    console.log("Please enter a number.");
-                    return false;
-                }
-            }
+            validate: validateTest
         }
     ]).then(function (answers) {
         confirm(answers.quantity, answers.itemid, prompt);
         // resetstock(answers.quantity, answers.itemid);
     })
 }
-
-preprompt(prompt);

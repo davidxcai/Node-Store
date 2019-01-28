@@ -13,6 +13,10 @@ var connection = mysql.createConnection({
 connection.connect(function (err) {
     if (err) throw err;
     // console.log(`Connected to mySql with ID: ${connection.threadId}`);
+    console.log(divider);
+    console.log(`\t   Welcome back, Mr. Shoppington`);
+    console.log(divider);
+    manager();
 });
 
 function read(low) {
@@ -95,7 +99,18 @@ function addNew(product, department, price, stock) {
     });
 }
 
-
+//checks to see if the number is greater than 0
+function validateTest(value) {
+    if (isNaN(value) === false) {
+        if (Number(value) <= 0) {
+            return "Please enter a number greater than 0.";
+        } else {
+            return true;
+        }
+    } else if (isNaN(value)) {
+        return "Please enter a number.";
+    }
+}
 
 function keepgoing() {
     inquirer.prompt([
@@ -105,7 +120,7 @@ function keepgoing() {
             type: "list",
             choices: ["Yes", "No"]
         }
-    ]).then(function(answer) {
+    ]).then(function (answer) {
         if (answer.action === "Yes") {
             manager();
         }
@@ -115,7 +130,7 @@ function keepgoing() {
     })
 }
 
-function confirm(action, name, dep, price, q) {
+function confirm(action, name, dep, price, q, id) {
     if (action === 'addNew') {
         console.log(divider);
         console.log(`Adding item(s) to inventory:`);
@@ -129,7 +144,7 @@ function confirm(action, name, dep, price, q) {
             message: "Please Confirm:",
             type: 'list',
             choices: ['Confirm', 'Cancel']
-        }).then(function(ans) {
+        }).then(function (ans) {
             if (ans.action === 'Confirm') {
                 //run
                 addNew(name, dep, price, q);
@@ -141,7 +156,7 @@ function confirm(action, name, dep, price, q) {
     }
     else if (action === 'addMore') {
         console.log(divider);
-        console.log(`Adding quantity to ID: ${dep}:`);
+        console.log(`Adding quantity to ID: ${id}:`);
         console.log(`Quantity: ${q}`);
         console.log(divider);
         inquirer.prompt({
@@ -149,17 +164,17 @@ function confirm(action, name, dep, price, q) {
             message: "Please Confirm:",
             type: 'list',
             choices: ['Confirm', 'Cancel']
-        }).then(function(ans) {
+        }).then(function (ans) {
             if (ans.action === 'Confirm') {
                 //run
-                addMore(name, dep);
+                addMore(q, id);
             }
             else if (ans.action === 'Cancel') {
                 keepgoing();
             }
         });
     }
-    
+
 }
 
 //Prompts user upon startup
@@ -171,7 +186,7 @@ function manager() {
             type: "list",
             choices: ['View Products for Sale', 'View Low Inventory', 'Add to Inventory', 'Add New Product', 'Quit']
         }
-    ]).then(function(answer) {
+    ]).then(function (answer) {
         var a = answer.action;
         if (a === 'View Products for Sale') {
             read();
@@ -185,21 +200,7 @@ function manager() {
                 {
                     name: "id",
                     message: "What is the ID of the item you want to update?",
-                    validate: function (value) {
-                        if (isNaN(value) === false) {
-                            if (Number(value) <= 0) {
-                                console.log("Please enter an ID greater than 0.");
-                                return false;
-                            }
-                            else {
-                                return true;
-                            }
-                        }
-                        else if (isNaN(value)) {
-                            console.log("Please enter a number.");
-                            return false;
-                        }
-                    }
+                    validate: validateTest
                 },
                 {
                     name: "stock",
@@ -214,33 +215,31 @@ function manager() {
                         }
                     }
                 }
-            ]).then(function(ans) {
+            ]).then(function (ans) {
                 var action = 'addMore';
-                confirm(action, ans.stock, ans.id);
+                confirm(action, null, null, null, ans.stock, ans.id);
             });
         }
         else if (a === 'Add New Product') {
             var select = `SELECT * FROM products`;
             var depArr = [];
-            connection.query(select, function(err, product) {
+            connection.query(select, function (err, product) {
                 if (err) throw err;
-                product.forEach(function(x, i) {
+                product.forEach(function (x, i) {
                     depArr.push(product[i].department_name);
                 });
-                depArr.push('Add New Department');
                 let department = [...new Set(depArr)];
                 console.log(`Department array: ${department}`);
                 inquirer.prompt([
                     {
                         name: "product",
                         message: "What would you like to add?",
-                        validate: function(value) {
+                        validate: function (value) {
                             if (value) {
                                 return true;
                             }
                             else if (!value) {
                                 console.log("Please enter a product name.")
-                                return false;
                             }
                         }
                     },
@@ -248,60 +247,19 @@ function manager() {
                         name: "department",
                         message: "What department does this belong to?",
                         type: "list",
-                        choices: department,
-                        validate: function(value) {
-                            if (value === 'Add New Department') {
-                                inquirer.prompt({
-                                    name: "dep",
-                                    message: "Please enter the new department name:",
-                                    validate: function(value) {
-                                        if (value) {
-                                            return true;
-                                        }
-                                        else if (!value) {
-                                            console.log("Please enter a product name.")
-                                            return false;
-                                        }
-                                    }
-                                }).then(function(ans) {
-                                    value = ans.dep;
-                                })
-                            }
-                        }
+                        choices: department
                     },
                     {
                         name: "price",
                         message: "Set the price of the item: ",
-                        validate: function (value) {
-                            if (isNaN(value) === false) {
-                                return true;
-                            }
-                            else {
-                                console.log(' Please enter a number.')
-                                return false;
-                            }
-                        }
+                        validate: validateTest
                     },
                     {
                         name: "stock",
                         message: "Set the inventory quantity: ",
-                        validate: function (value) {
-                            if (isNaN(value) === false) {
-                                if (Number(value) <= 0) {
-                                    console.log("Please enter a quantity greater than 0.");
-                                    return false;
-                                }
-                                else {
-                                    return true;
-                                }
-                            }
-                            else if (isNaN(value)) {
-                                console.log("Please enter a number.");
-                                return false;
-                            }
-                        }
+                        validate: validateTest
                     }
-                ]).then(function(ans) {
+                ]).then(function (ans) {
                     var action = 'addNew';
                     confirm(action, ans.product, ans.department, ans.price, ans.stock);
                 });
@@ -312,5 +270,3 @@ function manager() {
         }
     });
 }
-
-manager();
