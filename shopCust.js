@@ -25,42 +25,47 @@ function read(func, id) {
         var select = `SELECT * FROM products WHERE item_id = ?`;
         connection.query(select, [id], function (err, result) {
             if (err) throw err;
-            var left = Number(result[0].stock_quantity);
-            var price = parseFloat(result[0].price).toFixed(2);
-            console.log(divider);
-            console.log(`ID: \t\t${result[0].item_id}`);
-            console.log(`Item: \t\t${result[0].product_name}`);
-            console.log(`Price \t\t$${price}`);
-            if (left <= 0) {
-                console.log(`Out of stock`);
+            if (result === null) {
+                console.log("Sorry, that item doesn't exist :(");
             }
             else {
-                console.log(`In stock: \t${left}`);
-            }
-            console.log(`Department: \t${result[0].department_name}`)
-            console.log(divider);
-            inquirer.prompt([{
-                name: "ask",
-                message: "Would you like to purchase this item?",
-                type: "list",
-                choices: ["Yes", "No thanks"]
-            }
-            ]).then(function (choice) {
-                if (choice.ask === "Yes") {
-                    inquirer.prompt(
-                        {
-                            name: 'quantity',
-                            message: 'How many would you like to purchase?',
-                            validate: validateTest
-                        }
-                    ).then(function (q) {
-                        confirm(q.quantity, id, prompt);
-                    })
+                var left = Number(result[0].stock_quantity);
+                var price = parseFloat(result[0].price).toFixed(2);
+                console.log(divider);
+                console.log(`ID: \t\t${result[0].item_id}`);
+                console.log(`Item: \t\t${result[0].product_name}`);
+                console.log(`Price \t\t$${price}`);
+                if (left <= 0) {
+                    console.log(`Out of stock`);
                 }
-                else if (choice.ask === "No thanks") {
-                    keepgoing();
+                else {
+                    console.log(`In stock: \t${left}`);
                 }
-            })
+                console.log(`Department: \t${result[0].department_name}`)
+                console.log(divider);
+                inquirer.prompt([{
+                    name: "ask",
+                    message: "Would you like to purchase this item?",
+                    type: "list",
+                    choices: ["Yes", "No thanks"]
+                }
+                ]).then(function (choice) {
+                    if (choice.ask === "Yes") {
+                        inquirer.prompt(
+                            {
+                                name: 'quantity',
+                                message: 'How many would you like to purchase?',
+                                validate: validateTest
+                            }
+                        ).then(function (q) {
+                            confirm(q.quantity, id, prompt);
+                        })
+                    }
+                    else if (choice.ask === "No thanks") {
+                        keepgoing();
+                    }
+                })
+            }
         });
     }
     else {
@@ -110,17 +115,26 @@ function validateTest(value) {
     }
 }
 
+function hard(id, read) {
+    var update = `UPDATE products SET stock_quantity = ?, product_sales = ? WHERE item_id = ?`;
+    connection.query(update, [100, 59.99, id], function (err) {
+        if (err) throw err;
+        console.log(read);
+    });
+}
+
 //Updates the quantity in the database
-function update(quantity, id, func) {
+function update(quantity, id) {
     var update = `UPDATE products SET stock_quantity = ?, product_sales = ? WHERE item_id = ?`;
     var select = `SELECT * FROM products WHERE item_id = ?`;
     connection.query(select, [id], function (err, result) {
         if (err) throw err;
+        var sales = result[0].product_sales
         var stock = result[0].stock_quantity;
         var remaining = result[0].stock_quantity -= quantity;
-        var amount = parseFloat(result[0].price * quantity).toFixed(2);
-        var total = parseFloat(amount * 1.06).toFixed(2);
-        var sales = parseFloat(result[0].product_sales += amount).toFixed(2);
+        var sum = result[0].price * quantity;
+        var newNum = sales += sum;
+        var total = parseFloat(sum * 1.06).toFixed(2);
         if (stock > 0) {
             if (remaining < 0) {
                 console.log(divider);
@@ -129,7 +143,7 @@ function update(quantity, id, func) {
                 keepgoing();
             }
             else {
-                connection.query(update, [remaining, sales, id], function (err) {
+                connection.query(update, [remaining, newNum, id], function (err) {
                     if (err) throw err;
                     console.log(divider);
                     console.log("Thank you for your purchase!\n");
@@ -196,12 +210,15 @@ function preprompt(func) {
     })
 }
 
-function confirm(q, id, func) {
+
+//before a purchase is made, asks user to confirm
+//func being passed is prompt for later
+function confirm(q, id) {
     var select = `SELECT * FROM products WHERE item_id = ?`;
     connection.query(select, [id], function (err, result) {
         if (err) throw err;
         var price = q * parseFloat(result[0].price).toFixed(2);
-        var tax = parseFloat((price * 0.06) * q).toFixed(2);
+        var tax = parseFloat(price * 0.06).toFixed(2);
         var total = parseFloat(price * 1.06).toFixed(2);
         console.log(divider);
         console.log("Order Summary:\n");
@@ -220,7 +237,7 @@ function confirm(q, id, func) {
             }
         ).then(function (answer) {
             if (answer.confirm === 'Place Order') {
-                update(q, id, func);
+                update(q, id);
             }
             else if (answer.confirm === "Cancel") {
                 keepgoing();
@@ -243,7 +260,7 @@ function prompt() {
             validate: validateTest
         }
     ]).then(function (answers) {
-        confirm(answers.quantity, answers.itemid, prompt);
+        confirm(answers.quantity, answers.itemid);
         // resetstock(answers.quantity, answers.itemid);
     })
 }

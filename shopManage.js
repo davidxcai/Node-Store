@@ -221,14 +221,14 @@ function manager() {
             });
         }
         else if (a === 'Add New Product') {
-            var select = `SELECT * FROM products`;
-            var depArr = [];
-            connection.query(select, function (err, product) {
+            var select = `SELECT * FROM departments`;
+            var department = [];
+            connection.query(select, function (err, dep) {
                 if (err) throw err;
-                product.forEach(function (x, i) {
-                    depArr.push(product[i].department_name);
+                dep.forEach(function (x, i) {
+                    department.push(dep[i].department_name);
                 });
-                let department = [...new Set(depArr)];
+                // let department = [...new Set(depArr)];
                 console.log(`Department array: ${department}`);
                 inquirer.prompt([
                     {
