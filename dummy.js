@@ -47,3 +47,21 @@
 //         startup();
 //     })
 // }
+
+// function hard(id, read) {
+//     var update = `UPDATE products SET stock_quantity = ?, product_sales = ? WHERE item_id = ?`;
+//     connection.query(update, [100, 59.99, id], function (err) {
+//         if (err) throw err;
+//         console.log(read);
+//     });
+// }
+
+//Testing purpose to restock inventory
+// function resetstock(quantity, id) {
+//     var update = `UPDATE products SET price = ? WHERE item_id = ?`;
+//     connection.query(update, [quantity, id], function (err, result) {
+//         if (err) throw err;
+//         console.log(`reset price: ${quantity}`);
+//         prompt();
+//     });
+// }
